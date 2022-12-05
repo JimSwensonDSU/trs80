@@ -50,7 +50,8 @@
 #include <sys/stat.h>
 
 int initialize(int *file_descriptor);
-int write_hex_string(int fd, char *s);
+int write_hex_string(int fd, char *s, int literal);
+int write_wav_header(int fd, int n);
 int write_byte(int fd, unsigned char c);
 void flush(int fd);
 
@@ -70,25 +71,48 @@ int main(int argc, char *argv[])
   int fd, fd_cas;
   unsigned char c;
 
-  if (argc != 2)
+  if (argc != 2 && argc != 3)
   {
-     printf("Usage: %s file.cas\n", argv[0]);
+     printf("Usage: %s file.cas [file.wav]\n", argv[0]);
      exit(1);
   }
 
-  if (initialize(&fd) < 0)
+  if (argc == 2)
   {
-     perror("Fail");
-     exit(1);
+     if (initialize(&fd) < 0)
+     {
+        perror("Fail");
+        exit(1);
+     }
+  }
+  else
+  {
+     /* Writing to a file instead */
+     fd = open(argv[2], O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IRUSR);
+     if (fd < 0)
+     {
+        perror("Fail");
+        exit(1);
+     }
   }
 
-  /* open sound device */
+  /* open CAS file */
   fd_cas = open(argv[1], O_RDONLY);
   if (fd_cas < 0)
   {
      perror("Unable to open file");
      perror(argv[1]);
      exit(1);
+  }
+
+  if (argc == 3)
+  {
+     struct stat buf;
+     fstat(fd_cas, &buf);
+     off_t size = buf.st_size;
+
+     /* Write WAV header */
+     write_wav_header(fd, size);
   }
 
   while (read(fd_cas,&c,1))
@@ -166,7 +190,7 @@ int initialize(int *file_descriptor)
 /*
  * Sends bytes represented by 2 digit hex values in a string.
  */
-int write_hex_string(int fd, char *s)
+int write_hex_string(int fd, char *s, int literal)
 {
    char *p;
    unsigned char x;
@@ -175,14 +199,50 @@ int write_hex_string(int fd, char *s)
    {
       x=(((*p&0x40)?9+(*p&0x07):(*p&0x0f))<<4)|((*(p+1)&0x40)?9+(*(p+1)&0x07):(*(p+1)&0x0f));
 
-      if (write_byte(fd, x)<0)
+      if (literal)
       {
-         perror("Write hex string byte non literal failed");
-         return(-1);
+         if (write(fd, &x, 1)!=1)
+         {
+            perror("Write hex string byte literal failed");
+            return(-1);
+         }
       }
+      else
+      {
+         if (write_byte(fd, x)<0)
+         {
+            perror("Write hex string byte non literal failed");
+            return(-1);
+         }
+      }
+
    }
 
    return(0);
+}
+
+
+int write_wav_header(int fd, int n)
+{
+
+/*
+ * 00000000  52 49 46 46 XX XX XX XX  57 41 56 45 66 6d 74 20  |RIFF....WAVEfmt |
+ * 00000010  10 00 00 00 01 00 01 00  11 2b 00 00 11 2b 00 00  |.........+...+..|
+ * 00000020  01 00 08 00 64 61 74 61  YY YY YY YY              |....data....|
+ *
+ * XX XX XX XX = (192*bytesin + 36), LSB first
+ * YY YY YY YY = (192*bytesin), LSB first
+ */
+
+   char *header = "52494646%02x%02x%02x%02x57415645666d74201000000001000100112b0000112b00000100080064617461%02x%02x%02x%02x";
+   char buf[100];
+   int count;
+
+   n *= 192;
+   count = n + 36;
+   sprintf(buf,header,count&0xff,(count>>8)&0xff,(count>>16)&0xff,(count>>24)&0xff,n&0xff,(n>>8)&0xff,(n>>16)&0xff,(n>>24)&0xff);
+
+   return(write_hex_string(fd, buf, 1));
 }
 
 
@@ -228,5 +288,5 @@ int write_byte(int fd, unsigned char c)
 /* extra stuff to flush the descriptor out */
 void flush(int fd)
 {
-   write_hex_string(fd, "00000000000000000000");
+   write_hex_string(fd, "00000000000000000000", 0);
 }
