@@ -4,13 +4,13 @@ Disassembly and analysis of the 16K Version of the RENUM Line Renumbering Progra
 
 ## Files
 
-- RENUM-16.CAS\
+- [RENUM-16.CAS](RENUM-16.CAS)\
 CAS file for the Machine Language program
 
-- RENUM-16.txt\
+- [RENUM-16.txt](RENUM-16.txt)\
 Full disassembly and analysis
 
 - Source for the BASIC program referenced within the analysis
-  - BASIC_READC.m4a (audio file, 500 baud)
-  - BASIC_READC.WAV (audio file, 500 baud)
-  - BASIC_READC.CAS (CAS file)
+  - [BASIC_READC.m4a](BASIC_READC.m4a) (audio file, 500 baud)
+  - [BASIC_READC.WAV](BASIC_READC.WAV) (audio file, 500 baud)
+  - [BASIC_READC.CAS](BASIC_READC.CAS) (CAS file)
